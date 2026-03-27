@@ -1,0 +1,258 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm mb-4">
+  <div class="container">
+    <a class="navbar-brand fw-bold" href="#">
+      <i class="bi bi-heart-pulse-fill me-2"></i> MediCloud Pro
+    </a>
+    <div class="d-flex align-items-center" *ngIf="user$ | async as user">
+      <span class="text-white me-3"><i class="bi bi-person-circle me-1"></i> {{ user.displayName || 'Doctor(a)' }}</span>
+      <button class="btn btn-light btn-sm fw-bold text-primary" (click)="logout()">
+        <i class="bi bi-box-arrow-right"></i> Salir
+      </button>
+    </div>
+  </div>
+</nav>
+
+<div class="container pb-5">
+
+  <div class="p-4 mb-4 bg-white rounded-4 shadow-sm border-start border-5 border-primary">
+    <h3 class="fw-bold text-dark mb-1">Panel de Control Médico</h3>
+    <p class="text-muted mb-0">Sistema integral de expedientes, asignación de citas y análisis predictivo con IA.</p>
+  </div>
+
+  <div class="card border-0 shadow-sm rounded-4 mb-5">
+    <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
+      <h5 class="fw-bold text-primary mb-0">
+        <i class="bi bi-clipboard2-pulse me-2"></i> 
+        {{ editingId ? 'Actualizar Expediente Clínico' : 'Apertura de Nuevo Expediente' }}
+      </h5>
+      <hr class="text-muted">
+    </div>
+    
+    <div class="card-body px-4 pb-4">
+      <form [formGroup]="pacienteForm" (ngSubmit)="onSubmit()">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label text-muted fw-semibold small">Nombre del Paciente *</label>
+            <input type="text" class="form-control bg-light border-0" formControlName="nombre" placeholder="Ej. Juan Carlos"
+                   [class.is-invalid]="pacienteForm.get('nombre')?.invalid && pacienteForm.get('nombre')?.touched">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label text-muted fw-semibold small">Apellidos *</label>
+            <input type="text" class="form-control bg-light border-0" formControlName="apellidos" placeholder="Ej. Pérez García"
+                   [class.is-invalid]="pacienteForm.get('apellidos')?.invalid && pacienteForm.get('apellidos')?.touched">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label text-muted fw-semibold small">Fecha de Nacimiento *</label>
+            <input type="date" class="form-control bg-light border-0" formControlName="fechaNacimiento"
+                   [class.is-invalid]="pacienteForm.get('fechaNacimiento')?.invalid && pacienteForm.get('fechaNacimiento')?.touched">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label text-muted fw-semibold small">Correo Electrónico *</label>
+            <input type="email" class="form-control bg-light border-0" formControlName="correoElectronico" placeholder="correo@ejemplo.com"
+                   [class.is-invalid]="pacienteForm.get('correoElectronico')?.invalid && pacienteForm.get('correoElectronico')?.touched">
+          </div>
+
+          <div class="col-12">
+            <label class="form-label text-muted fw-semibold small">Domicilio Completo *</label>
+            <textarea class="form-control bg-light border-0" rows="2" formControlName="domicilio" placeholder="Calle, Número, Colonia..."
+                      [class.is-invalid]="pacienteForm.get('domicilio')?.invalid && pacienteForm.get('domicilio')?.touched"></textarea>
+          </div>
+        </div>
+
+        <div class="row mt-4 pt-3 border-top">
+          <div class="col-12">
+            <div class="p-4 rounded-4" style="background-color: #f8fbff; border: 1px solid #e2edff;">
+              <h6 class="fw-bold text-primary mb-3">
+                <i class="bi bi-robot text-info me-2"></i> Asignación y Diagnóstico (Motor IA)
+              </h6>
+              
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label text-muted fw-semibold small">Médico Tratante</label>
+                  <select class="form-select border-primary bg-white" #idMedico>
+                    <option value="" disabled selected>Seleccione especialista...</option>
+                    <option *ngFor="let m of medicosDB" [value]="m.id_medico">
+                      Dr/a. {{ m.nombre }} {{ m.apellidos }} ({{ m.especialidad }})
+                    </option>
+                  </select>
+                </div>
+                <div class="col-md-8">
+                  <label class="form-label text-muted fw-semibold small">Observaciones Clínicas (Para NLP)</label>
+                  <textarea class="form-control border-primary bg-white" #diagTexto rows="1" 
+                            placeholder="Describa los síntomas para el análisis predictivo..."></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex gap-3 mt-4">
+          <button type="submit" class="btn btn-primary px-4 py-2 rounded-3 fw-bold shadow-sm">
+            <i class="bi bi-cloud-arrow-up me-2"></i> {{ editingId ? 'Actualizar Base' : 'Guardar Expediente' }}
+          </button>
+          
+          <button type="button" class="btn btn-info text-white px-4 py-2 rounded-3 fw-bold shadow-sm" 
+                  (click)="guardarCitaConIA(diagTexto.value)">
+            <i class="bi bi-cpu me-2"></i> Agendar Cita y Ejecutar IA
+          </button>
+
+          <button type="button" class="btn btn-light px-4 py-2 rounded-3 fw-bold border" 
+                  (click)="resetForm()" *ngIf="editingId">
+            Cancelar Edición
+          </button>
+        </div>
+
+        <div class="row mt-4" *ngIf="resultadoIA">
+          <div class="col-12">
+            <div class="alert shadow-sm border-0 rounded-4 d-flex align-items-center" 
+                 [ngClass]="resultadoIA.riesgo === 'ALTO' ? 'bg-danger text-white' : 'bg-success text-white'">
+              <div class="fs-1 me-4">
+                <i class="bi" [ngClass]="resultadoIA.riesgo === 'ALTO' ? 'bi-exclamation-triangle' : 'bi-check-circle'"></i>
+              </div>
+              <div>
+                <h5 class="fw-bold mb-1">Reporte Predictivo Finalizado</h5>
+                <p class="mb-0"><strong>Riesgo Epidemiológico:</strong> {{ resultadoIA.riesgo }} | <strong>Acción Sugerida:</strong> {{ resultadoIA.mensaje }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="row g-4 mb-5">
+    
+    <div class="col-lg-7">
+      <div class="card border-0 shadow-sm rounded-4 h-100">
+        <div class="card-header bg-white border-bottom-0 pt-4 d-flex justify-content-between align-items-center">
+          <h5 class="fw-bold text-dark mb-0">
+            <i class="bi bi-people-fill text-warning me-2"></i> Pacientes Activos
+          </h5>
+          <button class="btn btn-sm rounded-pill fw-bold px-3" 
+                  [ngClass]="mostrarLista ? 'btn-danger' : 'btn-light border'"
+                  (click)="toggleVisibilidad()">
+            <i class="bi" [ngClass]="mostrarLista ? 'bi-eye-slash' : 'bi-eye'"></i> 
+            {{ mostrarLista ? 'Ocultar' : 'Desbloquear' }}
+          </button>
+        </div>
+        
+        <div class="card-body">
+          <div class="text-center py-5 text-muted" *ngIf="!mostrarLista">
+            <i class="bi bi-shield-lock display-4 text-light"></i>
+            <h6 class="mt-3">Privacidad Activada</h6>
+            <p class="small">Datos protegidos. Requiere credenciales para visualizar.</p>
+          </div>
+
+          <div class="table-responsive" *ngIf="mostrarLista">
+            <table class="table table-hover align-middle small">
+              <thead class="text-muted">
+                <tr>
+                  <th>Paciente</th>
+                  <th>Contacto</th>
+                  <th class="text-end">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let paciente of pacientes">
+                  <td>
+                    <div class="fw-bold text-dark">{{ paciente.nombre }} {{ paciente.apellidos }}</div>
+                    <div class="text-muted" style="font-size: 0.8rem;">Nac: {{ paciente.fechaNacimiento | date:'shortDate' }}</div>
+                  </td>
+                  <td>
+                    <div class="text-truncate" style="max-width: 150px;" title="{{ paciente.correoElectronico }}">
+                      <i class="bi bi-envelope me-1"></i>{{ paciente.correoElectronico }}
+                    </div>
+                  </td>
+                  <td class="text-end">
+                    <button class="btn btn-sm btn-light text-primary me-1 rounded-circle" (click)="editPaciente(paciente)" title="Editar">
+                      <i class="bi bi-pencil-square"></i>
+                    </button>
+                    <button class="btn btn-sm btn-light text-danger rounded-circle" (click)="deletePaciente(paciente.id)" title="Eliminar">
+                      <i class="bi bi-trash3"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card border-0 shadow-sm rounded-4 h-100" style="background-color: #0d6efd; color: white;">
+        <div class="card-header border-bottom-0 pt-4 bg-transparent">
+          <h5 class="fw-bold mb-0">
+            <i class="bi bi-building-add me-2"></i> Directorio Médico
+          </h5>
+          <p class="small text-white-50 mb-0">Conectado a SQL Server (Somee)</p>
+        </div>
+        
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-borderless text-white align-middle small mb-0">
+              <thead class="text-white-50 border-bottom border-light">
+                <tr>
+                  <th>Especialista</th>
+                  <th>Especialidad</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let medico of medicosDB" class="border-bottom border-light" style="--bs-border-opacity: .2;">
+                  <td>
+                    <div class="fw-bold">Dr. {{ medico.apellidos }}</div>
+                    <div class="text-white-50" style="font-size: 0.75rem;">ID: #{{ medico.id_medico }} | Cédula: {{ medico.cedula }}</div>
+                  </td>
+                  <td>
+                    <span class="badge bg-light text-primary rounded-pill">{{ medico.especialidad }}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm rounded-4 mb-5 border-top border-5 border-info">
+    <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
+      <h5 class="fw-bold text-dark mb-0">
+        <i class="bi bi-journal-medical text-info me-2"></i> Registro Histórico de Citas
+      </h5>
+      <p class="text-muted small">Consultas almacenadas y procesadas por NLP.</p>
+    </div>
+    <div class="card-body px-4">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead class="table-light text-muted small fw-semibold">
+            <tr>
+              <th class="ps-3 border-0 rounded-start">Folio</th>
+              <th class="border-0">Fecha / Hora</th>
+              <th class="border-0">Síntomas / Diagnóstico</th>
+              <th class="border-0 rounded-end">Especialista Asignado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let cita of historialCitas">
+              <td class="ps-3 fw-bold text-info">#{{ cita.id_cita }}</td>
+              <td class="small">{{ cita.fecha_hora | date:'medium' }}</td>
+              <td class="fst-italic text-muted">"{{ cita.diagnostico }}"</td>
+              <td><span class="badge bg-light text-dark border"><i class="bi bi-person me-1"></i> Doc ID: {{ cita.id_medico }}</span></td>
+            </tr>
+            <tr *ngIf="historialCitas.length === 0">
+              <td colspan="4" class="text-center py-5 text-muted">
+                <i class="bi bi-inbox fs-2 d-block mb-2 text-light"></i>
+                Sin registros en SQL Server
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>

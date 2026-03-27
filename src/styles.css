@@ -1,0 +1,22 @@
+/* Importamos Inter, una de las fuentes más limpias para software */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+:root {
+  --primary-clinical: #0052FF; /* El azul vibrante de Connecteam */
+  --bg-light: #F4F7FA;
+  --text-main: #1A2B49;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-light);
+  color: var(--text-main);
+  margin: 0;
+}
+
+/* Botones con bordes suaves */
+.btn {
+  border-radius: 10px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
